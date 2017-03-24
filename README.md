@@ -16,3 +16,10 @@ Each series will be organized into the format:
 
 The name of any series directories that were created will be printed to
 STDOUT.
+
+## Installation
+
+Compiling `dicomfmt` requires [Go](https://golang.org). After installing Go,
+run `go get github.com/driusan/dicomfmt` and the dicomfmt command will be
+installed into `$GOPATH/bin/`.
+
