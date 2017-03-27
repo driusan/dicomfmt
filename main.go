@@ -25,6 +25,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"time"
 	"unicode"
 
 	"github.com/driusan/go-dicom"
@@ -37,6 +38,7 @@ type FileName string
 
 type SeriesFiles struct {
 	PatientName, SeriesDescription string
+	InstanceCreationTime           time.Time
 	Files                          []FileName
 }
 
@@ -172,11 +174,34 @@ func SplitSeries(dir FileName) (map[SeriesInstanceUID]SeriesFiles, error) {
 					log.Println(filename, " lookup error for SeriesDescription", err)
 					continue
 				}
+				instanceDate, err := data.LookupElement("InstanceCreationDate")
+				if err != nil {
+					log.Println(filename, " lookup error for SeriesDescription", err)
+					continue
+				}
+				instanceTime, err := data.LookupElement("InstanceCreationTime")
+				if err != nil {
+					log.Println(filename, " lookup error for SeriesDescription", err)
+					continue
+				}
 
+				timeVal := instanceTime.GetValue()
+				if len(timeVal) < 4 {
+					log.Println(filename, " invalid InstanceCreationTime: ", instanceTime.GetValue())
+					continue
+				}
+
+				instanceDateTime := instanceDate.GetValue() + timeVal[0:4]
+				instanceTimeParsed, err := time.Parse("200601021504", instanceDateTime)
+				if err != nil {
+					log.Println(err)
+					continue
+				}
 				series[newSeries] = SeriesFiles{
-					PatientName:       patient.GetValue(),
-					SeriesDescription: sd.GetValue(),
-					Files:             []FileName{filename},
+					PatientName:          patient.GetValue(),
+					SeriesDescription:    sd.GetValue(),
+					InstanceCreationTime: instanceTimeParsed,
+					Files:                []FileName{filename},
 				}
 			}
 		}
@@ -251,7 +276,7 @@ func main() {
 		}
 		for _, files := range series {
 			var movedSome bool
-			dstDir := fmt.Sprintf("%s/%s/%s", dst, files.PatientName, files.SeriesDescription)
+			dstDir := fmt.Sprintf("%s/%s/%s_%s", dst, files.PatientName, files.InstanceCreationTime.Format("2006-01-02_15:04"), files.SeriesDescription)
 			for _, file := range files.Files {
 				dstFile := FileName(filepath.Clean(dstDir + "/" + path.Base(file.String())))
 
